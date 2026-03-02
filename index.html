@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limbo Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="left-panel">
+        <div class="stat-item">
+            <span class="stat-label">Solde</span>
+            <span class="stat-value"><span id="balance">1000.00</span> €</span>
+        </div>
+
+        <div class="stat-item">
+            <span class="stat-label">Mise</span>
+            <input type="number" id="betInput" value="0.00" min="0.00" step="0.01">
+        </div>
+
+        <div class="stat-item">
+            <span class="stat-label">Gains</span>
+            <span class="stat-value" id="wins">0</span>
+        </div>
+
+        <div class="stat-item">
+            <span class="stat-label">Pertes</span>
+            <span class="stat-value" id="losses">0</span>
+        </div>
+
+        <div class="stat-item">
+            <span class="stat-label">Taux de gain</span>
+            <span class="stat-value"><span id="winrate">0.00</span>%</span>
+        </div>
+
+        <div id="error"></div>
+
+        <button id="toggleBtn">Lancer le Pari Automatiquement</button>
+    </div>
+
+    <div class="right-panel">
+        <div class="history-container" id="history"></div>
+
+        <div class="multiplier-display">
+            <span class="multiplier-value" id="mult">-</span>
+        </div>
+
+        <div class="target-container">
+            <span class="target-label">Multiplicateur cible</span>
+            <input type="number" id="targetInput" class="target-input" value="2.00" min="1.00" step="0.01">
+        </div>
+    </div>
+
+    <script src="seedGenerator.js"></script>
+    <script src="algorithmeLimbo.js"></script>
+    <script src="balanceManager.js"></script>
+    <script src="gameState.js"></script>
+    <script src="ui.js"></script>
+    <script src="gameController.js"></script>
+    <script src="strategies/strategie_test_1.js"></script>
+    <script>
+        // Initialisation des seeds à chaque chargement de page
+        const { serverSeed, clientSeed } = initializeSeeds();
+        setSeeds(serverSeed, clientSeed);
+        
+        // Initialisation du solde
+        resetBalance();
+        updateUI(0);
+        
+        console.log('Seeds générées:');
+        console.log('Server Seed:', serverSeed);
+        console.log('Client Seed:', clientSeed);
+        console.log('Solde initial:', getBalance());
+        
+        // Event listener pour le bouton
+        document.getElementById('toggleBtn').addEventListener('click', toggle);
+        
+        // Fonctions TEST exposées globalement
+        window.TEST = runTest;
+        console.log('\n📊 Fonctions disponibles:');
+        console.log('  - TEST(n, target, betAmount) : Test standard');
+        console.log('  - testStrategie1(nbLancees, initialBalance, lossTrigger, showDetails)');
+        console.log('    * nbLancees: nombre de manches (défaut: 1000)');
+        console.log('    * initialBalance: solde de départ (défaut: 1000€)');
+        console.log('    * lossTrigger: pertes consécutives déclencheur (défaut: 6)');
+        console.log('    * showDetails: afficher détails (défaut: false)');
+        console.log('\nExemples:');
+        console.log('  testStrategie1(10000) - 10k manches, 1000€, trigger 6, sans détails');
+        console.log('  testStrategie1(5000, 500) - 5k manches, 500€, trigger 6, sans détails');
+        console.log('  testStrategie1(1000, 1000, 8) - 1k manches, 1000€, trigger 8');
+        console.log('  testStrategie1(1000, 1000, 6, true) - avec détails complets');
+    </script>
+</body>
+</html>
