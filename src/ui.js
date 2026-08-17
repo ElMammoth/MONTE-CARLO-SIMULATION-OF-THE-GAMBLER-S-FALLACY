@@ -15,7 +15,7 @@ function updateUI(currentMult) {
         const div = document.createElement('div');
         div.className = 'history-item';
         
-        // Ajouter la classe 'win' si le multiplicateur est >= à la cible
+        // Highlight the tile when the multiplier cleared the target
         if (mult >= target) {
             div.classList.add('win');
         }
@@ -40,7 +40,7 @@ function getBetAmountFromInput() {
     const bet = Math.floor(value * 100) / 100;
     const currentBalance = getBalance();
     
-    // Permet 0, sinon limite au solde disponible
+    // 0 is allowed (observe-only mode); anything else is capped at the balance
     if (bet === 0) {
         return 0;
     }

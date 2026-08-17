@@ -1,71 +1,11 @@
-let intervalId = null;
-let running = false;
-
-async function step() {
-    const target = getTargetFromInput();
-    const betAmount = getBetAmountFromInput();
-    
-    if (!canPlaceBet(betAmount)) {
-        showError('Mise invalide - Jeu arrêté !');
-        stop();
-        return;
-    }
-    
-    const betPlaced = placeBet(betAmount);
-    
-    if (!betPlaced) {
-        showError('Impossible de placer le pari - Jeu arrêté !');
-        stop();
-        return;
-    }
-    
-    const currentNonce = getNonce();
-    const m = await calculateMultiplier(currentNonce);
-    
-    const win = isWin(m, target);
-    
-    if (win && betAmount > 0) {
-        addWinnings(betAmount, target);
-    }
-    
-    addBetResult(m, win, betAmount, target);
-    incrementNonce();
-    
-    updateUI(m);
-}
-
-function start() {
-    const betAmount = getBetAmountFromInput();
-    
-    if (!canPlaceBet(betAmount)) {
-        showError('Mise invalide !');
-        return;
-    }
-    
-    if (!running) {
-        running = true;
-        setRunningUI(true);
-        intervalId = setInterval(step, 250);
-    }
-}
-
-function stop() {
-    if (running) {
-        running = false;
-        setRunningUI(false);
-        clearInterval(intervalId);
-        intervalId = null;
-    }
-}
-
-function toggle() {
-    if (running) {
-        stop();
-    } else {
-        start();
-    }
-}
-
+/**
+ * The gambler's fallacy experiment.
+ *
+ * Plays `n` rounds at a fixed target and bet, then asks the only question that
+ * matters: conditional on having just observed k consecutive losses, what
+ * happened on the very next round? Compares each observed rate against the
+ * theoretical RTP / target, which is independent of everything that came before.
+ */
 async function runTest(n = 100000, target = 2.00, betAmount = 1.00) {
     console.log(`Running ${n} bets with target ${target.toFixed(2)}× and bet ${betAmount.toFixed(2)}...`);
     
@@ -79,7 +19,7 @@ async function runTest(n = 100000, target = 2.00, betAmount = 1.00) {
     const BET = Math.floor(betAmount * 100) / 100;
     const startTime = Date.now();
     
-    // Historique complet pour analyse des suites
+    // Full win/loss sequence, kept for the streak analysis below
     let fullHistory = [];
     
     let i = 0;
@@ -107,14 +47,14 @@ async function runTest(n = 100000, target = 2.00, betAmount = 1.00) {
         addBetResult(m, win, BET, TARGET);
         incrementNonce();
         
-        // Enregistrer dans l'historique complet
+        // Append to the full sequence
         fullHistory.push(win);
     }
     
-    // Analyse correcte de l'historique
+    // Walk the sequence and attribute each round to the streak that preceded it
     console.log('\n🔍 Analyse des suites de pertes...');
     
-    // Stats pour chaque longueur de suite de pertes
+    // Per streak length k: how often we stood at k losses, and what came next
     let lossStreakStats = {};
     let currentLossStreak = 0;
     
@@ -122,13 +62,15 @@ async function runTest(n = 100000, target = 2.00, betAmount = 1.00) {
         const currentWin = fullHistory[i];
         
         if (!currentWin) {
-            // C'est une perte
+            // A loss extends the current streak
             currentLossStreak++;
         } else {
-            // C'est un gain - analyse de la suite qui vient de se terminer
+            // A win closes the streak, so attribute every length it passed through
             if (currentLossStreak > 0) {
-                // Pour chaque longueur de 1 à currentLossStreak, 
-                // on enregistre qu'il y a eu un gain après cette longueur
+                // A streak of length L means we stood at k = 1..L losses at some
+                // point. Each of those is one observation of "k losses had just
+                // happened"; the next round was a loss for every k < L (the streak
+                // continued) and a win only at k = L (the streak ended here).
                 for (let k = 1; k <= currentLossStreak; k++) {
                     if (!lossStreakStats[k]) {
                         lossStreakStats[k] = { occurrences: 0, wins: 0, losses: 0 };
@@ -136,10 +78,10 @@ async function runTest(n = 100000, target = 2.00, betAmount = 1.00) {
                     lossStreakStats[k].occurrences++;
                     
                     if (k === currentLossStreak) {
-                        // Pour la longueur finale, c'est un gain
+                        // Terminal length: the next round was the win
                         lossStreakStats[k].wins++;
                     } else {
-                        // Pour les longueurs intermédiaires, c'est une perte (la suite a continué)
+                        // Intermediate length: the next round was another loss
                         lossStreakStats[k].losses++;
                     }
                 }
@@ -148,21 +90,21 @@ async function runTest(n = 100000, target = 2.00, betAmount = 1.00) {
         }
     }
     
-    // Si on termine sur une suite de pertes, on les compte aussi
+    // A streak still open when the run ends is censored: count it as a loss
     if (currentLossStreak > 0) {
         for (let k = 1; k <= currentLossStreak; k++) {
             if (!lossStreakStats[k]) {
                 lossStreakStats[k] = { occurrences: 0, wins: 0, losses: 0 };
             }
             lossStreakStats[k].occurrences++;
-            lossStreakStats[k].losses++; // Suite inachevée = perte
+            lossStreakStats[k].losses++; // Unfinished streak counts as a loss
         }
     }
     
     const elapsed = Date.now() - startTime;
     const stats = getStats();
     
-    // Enregistrer la dernière série de pertes si elle existe
+    // Record the trailing loss streak, which no win ever closed
     if (stats.currentLossStreak > 0) {
         stats.lossStreakCounts[stats.currentLossStreak] = (stats.lossStreakCounts[stats.currentLossStreak] || 0) + 1;
     }
@@ -189,7 +131,7 @@ async function runTest(n = 100000, target = 2.00, betAmount = 1.00) {
         console.log(`  ${streakLength} consecutive loss${streakLength > 1 ? 'es' : ''}: ${count} occurrence${count > 1 ? 's' : ''}`);
     }
     
-    // Afficher les stats du coup suivant chaque longueur de suite
+    // The core result: outcome of the round following each streak length
     console.log(`\n--- Stats du coup suivant chaque suite de pertes ---`);
     console.log(`Format: Longueur | Occurrences | Gains | Pertes | Win Rate | Loss Rate | Théorique`);
     console.log(`-------------------------------------------------------------------------------------`);

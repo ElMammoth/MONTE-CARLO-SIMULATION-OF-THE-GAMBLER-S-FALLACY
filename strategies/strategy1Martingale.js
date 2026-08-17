@@ -1,38 +1,42 @@
 /**
- * Stratégie de test n°1 : Martingale après série de pertes avec limite de mise
- * 
- * Paramètres :
- * - nbLancees : Nombre de manches à simuler
- * - initialBalance : Solde de départ (défaut: 1000€)
- * - lossTrigger : Nombre de pertes consécutives avant de parier (défaut: 6)
- * - maxBet : Mise maximale autorisée (défaut: 8€)
- * - showDetails : Afficher le détail des séquences (défaut: false)
- * 
- * Paramètres fixes :
- * - Mise de départ : 1€
- * - Multiplicateur cible : 2.00×
- * - Progression : Martingale (doublement après chaque perte)
- * 
- * Logique :
- * 1. Observer sans parier jusqu'à détecter X pertes consécutives
- * 2. Parier 1€ à la manche suivante
- * 3. Si victoire : retour en mode observation
- * 4. Si perte : doubler la mise jusqu'à atteindre maxBet
- * 5. Si perte à maxBet : abandonner la séquence et retourner en observation
+ * Strategy 1: capped martingale entered after a loss streak.
+ *
+ * This is the bet the gambler's fallacy talks you into — wait for a "due" run of
+ * losses, then double up until it corrects — measured against the same generator
+ * the experiment shows to be memoryless.
+ *
+ * Parameters:
+ * - rounds         : number of rounds to simulate (default: 1000)
+ * - initialBalance : starting balance (default: 1000 €)
+ * - lossTrigger    : consecutive losses required before betting starts (default: 6)
+ * - maxBet         : largest stake allowed (default: 8 €)
+ * - showDetails    : print every sequence (default: false)
+ *
+ * Fixed: 1 € opening stake, 2.00× target, stake doubles after each loss.
+ *
+ * Sequence lifecycle:
+ * 1. Observe without betting until `lossTrigger` consecutive losses appear.
+ * 2. Stake 1 € on the next round.
+ * 3. On a win, bank the sequence and return to observation.
+ * 4. On a loss, double the stake, up to `maxBet`.
+ * 5. On a loss at `maxBet`, abandon the sequence and return to observation.
+ *
+ * Runs on a virtual balance and restores the live game state when it finishes,
+ * so calling it never disturbs the balance shown in the UI.
  */
 
-async function testStrategie1(nbLancees = 1000, initialBalance = 1000.00, lossTrigger = 6, maxBet = 8.00, showDetails = false) {
+async function testStrategy1(rounds = 1000, initialBalance = 1000.00, lossTrigger = 6, maxBet = 8.00, showDetails = false) {
     console.log(`\n========== STRATÉGIE TEST 1 ==========`);
-    console.log(`Simulation de ${nbLancees} manches`);
+    console.log(`Simulation de ${rounds} manches`);
     console.log(`Solde initial: ${initialBalance.toFixed(2)}€`);
     console.log(`Target: 2.00× | Déclencheur: ${lossTrigger} pertes consécutives`);
     console.log(`Mise max: ${maxBet.toFixed(2)}€ | Progression: Martingale\n`);
 
-    // Sauvegarder l'état actuel du jeu
+    // Snapshot the live game state so it can be restored on exit
     const savedState = saveState();
     const savedNonce = getNonce();
 
-    // Variables de la stratégie
+    // Strategy parameters and running totals
     const TARGET = 2.00;
     const LOSS_TRIGGER = lossTrigger;
     const INITIAL_BET = 1.00;
@@ -49,9 +53,9 @@ async function testStrategie1(nbLancees = 1000, initialBalance = 1000.00, lossTr
     let sequences = [];
     let currentSequence = null;
     let minBalanceReached = initialBalance;
-    let sequencesAbandoned = 0; // Compteur de séquences abandonnées à cause de maxBet
+    let sequencesAbandoned = 0; // Sequences dropped after losing at maxBet
     
-    // Statistiques de résultats
+    // Outcome counters
     let observedResults = 0;
     let winCount = 0;
     let lossCount = 0;
@@ -59,14 +63,14 @@ async function testStrategie1(nbLancees = 1000, initialBalance = 1000.00, lossTr
     const startTime = Date.now();
     let virtualNonce = savedNonce;
 
-    for (let i = 0; i < nbLancees; i++) {
+    for (let i = 0; i < rounds; i++) {
         const mult = await calculateMultiplier(virtualNonce);
         const isWin = mult >= TARGET;
         
         observedResults++;
         
         if (isWaitingMode) {
-            // Mode observation
+            // Observation mode: watch for the trigger streak, stake nothing
             if (isWin) {
                 consecutiveLosses = 0;
             } else {
@@ -90,9 +94,9 @@ async function testStrategie1(nbLancees = 1000, initialBalance = 1000.00, lossTr
                 }
             }
         } else {
-            // Mode pari actif
+            // Betting mode: a trigger streak has fired
 
-            // VÉRIFICATION DU SOLDE AVANT DE PARIER
+            // The martingale can outrun the balance; stop before overdrawing
             if (currentBet > virtualBalance) {
                 console.log(`\n💸 SOLDE INSUFFISANT !`);
                 console.log(`   Mise requise: ${currentBet.toFixed(2)}€ | Solde disponible: ${virtualBalance.toFixed(2)}€`);
@@ -107,7 +111,7 @@ async function testStrategie1(nbLancees = 1000, initialBalance = 1000.00, lossTr
                 break;
             }
             
-            // Déduire la mise du solde virtuel
+            // Deduct the stake from the virtual balance
             virtualBalance -= currentBet;
             
             if (virtualBalance < minBalanceReached) {
@@ -132,7 +136,7 @@ async function testStrategie1(nbLancees = 1000, initialBalance = 1000.00, lossTr
             }
             
             if (isWin) {
-                // Victoire
+                // Win: the sequence closes in profit
                 const winnings = currentBet * TARGET;
                 virtualBalance += winnings;
                 totalWon += winnings;
@@ -149,18 +153,18 @@ async function testStrategie1(nbLancees = 1000, initialBalance = 1000.00, lossTr
                     console.log(`   Séquence terminée | Profit: ${currentSequence.profit.toFixed(2)}€ | ${currentSequence.bets.length} paris\n`);
                 }
                 
-                // Reset
+                // Back to observation
                 isWaitingMode = true;
                 consecutiveLosses = 0;
                 currentBet = 0;
                 currentSequence = null;
             } else {
-                // Perte
+                // Loss
                 lossCount++;
                 
-                // Vérifier si on a atteint la mise maximale
+                // Losing at the cap ends the sequence at a loss
                 if (currentBet >= MAX_BET) {
-                    // Abandonner la séquence
+                    // Abandon the sequence
                     currentSequence.endManche = i + 1;
                     currentSequence.success = false;
                     currentSequence.profit = currentSequence.totalWon - currentSequence.totalWagered;
@@ -173,13 +177,13 @@ async function testStrategie1(nbLancees = 1000, initialBalance = 1000.00, lossTr
                         console.log(`   Séquence abandonnée | Perte: ${(-currentSequence.profit).toFixed(2)}€ | ${currentSequence.bets.length} paris\n`);
                     }
                     
-                    // Retour en mode observation
+                    // Back to observation
                     isWaitingMode = true;
                     consecutiveLosses = 0;
                     currentBet = 0;
                     currentSequence = null;
                 } else {
-                    // Doubler la mise (en respectant la limite)
+                    // Double the stake, clamped to the cap
                     const nextBet = Math.min(currentBet * 2, MAX_BET);
                     
                     if (showDetails) {
@@ -195,9 +199,9 @@ async function testStrategie1(nbLancees = 1000, initialBalance = 1000.00, lossTr
         virtualNonce++;
     }
     
-    // Si une séquence est toujours en cours à la fin
+    // A sequence still open when the simulation ends is counted as unresolved
     if (currentSequence !== null) {
-        currentSequence.endManche = nbLancees;
+        currentSequence.endManche = rounds;
         currentSequence.success = false;
         currentSequence.profit = currentSequence.totalWon - currentSequence.totalWagered;
         sequences.push(currentSequence);
@@ -209,7 +213,7 @@ async function testStrategie1(nbLancees = 1000, initialBalance = 1000.00, lossTr
     const elapsed = Date.now() - startTime;
     const netProfit = totalWon - totalWagered;
     
-    // Affichage des résultats
+    // Report
     console.log(`\n========== RÉSULTATS FINAUX ==========`);
     console.log(`Temps d'exécution: ${elapsed}ms`);
     console.log(`\n--- Observations ---`);
@@ -270,10 +274,10 @@ async function testStrategie1(nbLancees = 1000, initialBalance = 1000.00, lossTr
     
     console.log(`======================================\n`);
     
-    // Restaurer l'état du jeu
+    // Restore the live game state
     restoreState(savedState);
     updateUI(savedState.history[0] || 0);
 }
 
-// Exposer la fonction globalement
-window.testStrategie1 = testStrategie1;
+// Exposed for use from the browser console
+window.testStrategy1 = testStrategy1;

@@ -9,7 +9,7 @@ let currentLossStreak = 0;
 let maxLossStreak = 0;
 let currentWinStreak = 0;
 let maxWinStreak = 0;
-let lossStreakCounts = {}; // Objet pour compter les séries de pertes
+let lossStreakCounts = {}; // Histogram: streak length -> number of times observed
 
 function resetNonce() {
     nonce = 0;
@@ -32,12 +32,12 @@ function addBetResult(multiplier, isWin, betAmount, targetMultiplier) {
         const winnings = betAmount * targetMultiplier;
         totalWon += winnings;
         
-        // Si on avait une série de pertes, on l'enregistre
+        // A win closes any loss streak, so record its length
         if (currentLossStreak > 0) {
             lossStreakCounts[currentLossStreak] = (lossStreakCounts[currentLossStreak] || 0) + 1;
         }
         
-        // Mise à jour des streaks de victoires
+        // Update win streaks
         currentWinStreak++;
         if (currentWinStreak > maxWinStreak) {
             maxWinStreak = currentWinStreak;
@@ -46,7 +46,7 @@ function addBetResult(multiplier, isWin, betAmount, targetMultiplier) {
     } else {
         losses++;
         
-        // Mise à jour des streaks de pertes
+        // Update loss streaks
         currentLossStreak++;
         if (currentLossStreak > maxLossStreak) {
             maxLossStreak = currentLossStreak;
