@@ -15,7 +15,7 @@ function resetBalance() {
 
 function placeBet(betAmount) {
     if (betAmount === 0) {
-        return true; // Permet de parier 0 pour mode démo
+        return true; // A 0 bet is legal: it lets you watch rounds without staking
     }
     if (betAmount > balance || betAmount < 0) {
         return false;
@@ -27,7 +27,7 @@ function placeBet(betAmount) {
 
 function addWinnings(betAmount, targetMultiplier) {
     if (betAmount === 0) {
-        return 0; // Pas de gains si mise à 0
+        return 0; // Nothing staked, nothing won
     }
     const winnings = betAmount * targetMultiplier;
     balance += winnings;
@@ -36,7 +36,7 @@ function addWinnings(betAmount, targetMultiplier) {
 
 function canPlaceBet(betAmount) {
     if (betAmount === 0) {
-        return true; // Toujours possible de parier 0
+        return true; // A 0 bet is always affordable
     }
     return betAmount > 0 && betAmount <= balance && balance >= 0;
 }

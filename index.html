@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Limbo Game</title>
+    <title>Limbo — Monte Carlo Simulation of the Gambler's Fallacy</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -51,44 +51,15 @@
         </div>
     </div>
 
-    <script src="seedGenerator.js"></script>
-    <script src="algorithmeLimbo.js"></script>
-    <script src="balanceManager.js"></script>
-    <script src="gameState.js"></script>
-    <script src="ui.js"></script>
-    <script src="gameController.js"></script>
-    <script src="strategies/strategie_test_1.js"></script>
-    <script>
-        // Initialisation des seeds à chaque chargement de page
-        const { serverSeed, clientSeed } = initializeSeeds();
-        setSeeds(serverSeed, clientSeed);
-        
-        // Initialisation du solde
-        resetBalance();
-        updateUI(0);
-        
-        console.log('Seeds générées:');
-        console.log('Server Seed:', serverSeed);
-        console.log('Client Seed:', clientSeed);
-        console.log('Solde initial:', getBalance());
-        
-        // Event listener pour le bouton
-        document.getElementById('toggleBtn').addEventListener('click', toggle);
-        
-        // Fonctions TEST exposées globalement
-        window.TEST = runTest;
-        console.log('\n📊 Fonctions disponibles:');
-        console.log('  - TEST(n, target, betAmount) : Test standard');
-        console.log('  - testStrategie1(nbLancees, initialBalance, lossTrigger, showDetails)');
-        console.log('    * nbLancees: nombre de manches (défaut: 1000)');
-        console.log('    * initialBalance: solde de départ (défaut: 1000€)');
-        console.log('    * lossTrigger: pertes consécutives déclencheur (défaut: 6)');
-        console.log('    * showDetails: afficher détails (défaut: false)');
-        console.log('\nExemples:');
-        console.log('  testStrategie1(10000) - 10k manches, 1000€, trigger 6, sans détails');
-        console.log('  testStrategie1(5000, 500) - 5k manches, 500€, trigger 6, sans détails');
-        console.log('  testStrategie1(1000, 1000, 8) - 1k manches, 1000€, trigger 8');
-        console.log('  testStrategie1(1000, 1000, 6, true) - avec détails complets');
-    </script>
+    <!-- Loaded in dependency order; these are plain globals, not modules. -->
+    <script src="src/seedGenerator.js"></script>
+    <script src="src/limboAlgorithm.js"></script>
+    <script src="src/balanceManager.js"></script>
+    <script src="src/gameState.js"></script>
+    <script src="src/ui.js"></script>
+    <script src="src/gameController.js"></script>
+    <script src="src/experiment.js"></script>
+    <script src="strategies/strategy1Martingale.js"></script>
+    <script src="src/main.js"></script>
 </body>
 </html>
